@@ -4,668 +4,863 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VoltEU — European Electricity Prices</title>
-  <meta name="description" content="See what electricity actually costs right now across Europe. Free Android app. No account." />
+  <meta name="description" content="See what electricity costs across Europe, hour by hour. Free Android app — no account required." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --ink:    #0c0c0a;
-      --paper:  #e8e4da;
-      --lime:   #c8f53c;
-      --dim:    #4a4a42;
-      --rule:   #2a2a24;
-      --hot:    #ff5c35;
-      --cold:   #5cccff;
+      --bg:       #ffffff;
+      --bg2:      #f8f7f5;
+      --bg3:      #f1f0ec;
+      --ink:      #18181b;
+      --body:     #3f3f46;
+      --muted:    #71717a;
+      --border:   #e4e4e7;
+      --blue:     #2563eb;
+      --blue-bg:  #eff6ff;
+      --blue-mid: #bfdbfe;
+      --green:    #16a34a;
+      --red:      #dc2626;
+      --amber:    #d97706;
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      background: var(--ink);
-      color: var(--paper);
-      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      line-height: 1.6;
       overflow-x: hidden;
-      cursor: default;
     }
 
-    /* ─── TICKER ─────────────────────────────────────── */
-    .ticker {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 100;
-      height: 28px;
-      border-bottom: 1px solid var(--rule);
-      background: var(--ink);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
+    /* ─── NAV ─────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
     }
-    .ticker-track {
-      display: flex;
-      gap: 0;
-      white-space: nowrap;
-      animation: scroll-left 30s linear infinite;
-    }
-    .ticker-track:hover { animation-play-state: paused; }
-    .ticker-item {
-      font-size: 10px;
-      letter-spacing: .08em;
-      color: var(--dim);
-      padding: 0 20px;
-      border-right: 1px solid var(--rule);
-      height: 28px;
-      display: flex;
-      align-items: center;
-      transition: color .15s;
-    }
-    .ticker-item:hover { color: var(--paper); }
-    .ticker-item .cc { color: var(--lime); margin-right: 5px; }
-    @keyframes scroll-left {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
-
-    /* ─── MAIN HERO ──────────────────────────────────── */
-    .hero {
-      min-height: 100svh;
-      padding-top: 28px;
-      display: grid;
-      grid-template-rows: 1fr auto;
-    }
-
-    .hero-center {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 48px 40px 24px;
-    }
-
-    /* Country cycling display */
-    .market-id {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      letter-spacing: .2em;
-      color: var(--dim);
-      text-transform: uppercase;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .market-id::before {
-      content: '';
-      display: inline-block;
-      width: 6px; height: 6px;
-      background: var(--lime);
-      border-radius: 50%;
-    }
-
-    .price-display {
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      margin-bottom: 0;
-      line-height: 1;
-    }
-    .price-number {
-      font-family: 'Syne', sans-serif;
-      font-weight: 800;
-      font-size: clamp(80px, 18vw, 200px);
-      letter-spacing: -0.04em;
-      line-height: .9;
-      color: var(--paper);
-      transition: color .4s ease, opacity .3s;
-    }
-    .price-number.hot { color: var(--hot); }
-    .price-number.cold { color: var(--cold); }
-    .price-unit {
-      font-size: 14px;
-      color: var(--dim);
-      letter-spacing: .05em;
-      align-self: flex-end;
-      padding-bottom: 16px;
-    }
-
-    /* ─── CHART ──────────────────────────────────────── */
-    .chart-wrap {
-      padding: 20px 40px 0;
-      display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      height: 80px;
-      border-top: 1px solid var(--rule);
-    }
-    .bar {
-      flex: 1;
-      border-radius: 1px 1px 0 0;
-      min-height: 2px;
-      transition: height .5s cubic-bezier(.23,1,.32,1), background .4s;
-      cursor: pointer;
-      position: relative;
-    }
-    .bar::after {
-      content: attr(data-price);
-      position: absolute;
-      bottom: calc(100% + 4px);
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 9px;
-      font-family: 'DM Mono', monospace;
-      color: var(--paper);
-      background: var(--rule);
-      padding: 2px 5px;
-      border-radius: 2px;
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .15s;
-    }
-    .bar:hover::after { opacity: 1; }
-    .bar.current { outline: 1px solid var(--lime); }
-
-    /* ─── HERO FOOTER ────────────────────────────────── */
-    .hero-foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 40px;
-      border-top: 1px solid var(--rule);
-      font-size: 11px;
-      color: var(--dim);
-      letter-spacing: .06em;
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 40px;
+      height: 56px; display: flex; align-items: center; justify-content: space-between;
     }
     .wordmark {
       font-family: 'Syne', sans-serif;
       font-weight: 800;
-      font-size: 15px;
-      color: var(--paper);
-      letter-spacing: -.01em;
+      font-size: 17px;
+      color: var(--ink);
+      letter-spacing: -.02em;
+      text-decoration: none;
+      display: flex; align-items: center; gap: 8px;
     }
-    .country-counter { font-variant-numeric: tabular-nums; }
+    .wordmark-dot {
+      width: 8px; height: 8px;
+      background: var(--blue);
+      border-radius: 50%;
+    }
+    .nav-link {
+      font-size: 13px; font-weight: 600;
+      color: var(--muted); text-decoration: none;
+      transition: color .15s;
+    }
+    .nav-link:hover { color: var(--ink); }
 
-    /* ─── DIVIDER ────────────────────────────────────── */
-    .section-rule {
-      height: 1px;
-      background: var(--rule);
-      margin: 0 40px;
+    /* ─── HERO ────────────────────────────────────────── */
+    .hero {
+      max-width: 1100px; margin: 0 auto;
+      padding: 72px 40px 64px;
     }
 
-    /* ─── ABOUT ──────────────────────────────────────── */
-    .about {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      min-height: 60vh;
-    }
-    .about-left {
-      padding: 64px 40px;
-      border-right: 1px solid var(--rule);
+    .hero-top {
       display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    .about-left p {
-      font-size: clamp(17px, 2.2vw, 22px);
-      line-height: 1.7;
-      color: var(--paper);
-      font-family: 'DM Mono', monospace;
-      font-weight: 400;
-      max-width: 520px;
-    }
-    .about-left p + p { margin-top: 20px; color: var(--dim); font-size: 14px; }
-
-    .about-right {
-      padding: 64px 40px;
-      display: flex;
-      flex-direction: column;
+      align-items: flex-start;
       justify-content: space-between;
+      gap: 40px;
+      margin-bottom: 56px;
     }
-    .about-label {
-      font-size: 10px;
-      letter-spacing: .15em;
-      color: var(--dim);
+
+    .hero-text { max-width: 580px; }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; font-weight: 500;
+      color: var(--blue);
+      letter-spacing: .06em;
       text-transform: uppercase;
       margin-bottom: 20px;
     }
-    .country-list {
-      list-style: none;
-      column-count: 2;
-      column-gap: 0;
-      font-size: 12px;
-      line-height: 2;
-      color: var(--dim);
-    }
-    .country-list li {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      break-inside: avoid;
-      transition: color .15s;
-    }
-    .country-list li:hover { color: var(--paper); }
-    .country-list li .cc {
-      font-family: 'DM Mono', monospace;
-      color: var(--lime);
-      font-size: 10px;
-      min-width: 32px;
+    .eyebrow-line {
+      width: 24px; height: 1.5px; background: var(--blue);
     }
 
-    /* ─── FEATURES ───────────────────────────────────── */
-    .features {
-      border-top: 1px solid var(--rule);
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-    }
-    .feature {
-      padding: 48px 40px;
-      border-right: 1px solid var(--rule);
-    }
-    .feature:last-child { border-right: none; }
-    .feature-num {
+    .hero h1 {
       font-family: 'Syne', sans-serif;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--dim);
-      letter-spacing: .12em;
-      margin-bottom: 24px;
-    }
-    .feature-title {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(18px, 2vw, 24px);
-      font-weight: 700;
-      color: var(--paper);
-      line-height: 1.2;
-      margin-bottom: 16px;
-      letter-spacing: -.02em;
-    }
-    .feature-desc {
-      font-size: 13px;
-      line-height: 1.8;
-      color: var(--dim);
-    }
-
-    /* ─── DOWNLOAD ───────────────────────────────────── */
-    .download {
-      border-top: 1px solid var(--rule);
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      min-height: 40vh;
-    }
-    .download-left {
-      padding: 64px 40px;
-      border-right: 1px solid var(--rule);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    .download-left h2 {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(32px, 5vw, 56px);
+      font-size: clamp(36px, 5vw, 58px);
       font-weight: 800;
       letter-spacing: -.04em;
-      line-height: 1.05;
-      color: var(--paper);
-      margin-bottom: 24px;
+      line-height: 1.08;
+      color: var(--ink);
+      margin-bottom: 20px;
     }
-    .download-left h2 em {
-      font-style: normal;
-      color: var(--lime);
+    .hero h1 span {
+      color: var(--blue);
     }
-    .dl-button {
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--body);
+      line-height: 1.7;
+      max-width: 440px;
+    }
+
+    /* Market tabs */
+    .market-selector {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .market-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .market-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-end;
+    }
+    .market-tab {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: background .15s, color .15s;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+    .market-tab:hover { color: var(--ink); background: var(--bg2); }
+    .market-tab.active {
+      background: var(--blue-bg);
+      color: var(--blue);
+      border-color: var(--blue-mid);
+      font-weight: 500;
+    }
+
+    /* ─── PRICE + CHART BLOCK ─────────────────────────── */
+    .price-chart-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 36px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .price-left {}
+    .price-context {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+      transition: opacity .3s;
+    }
+    .price-main {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .price-number {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(48px, 8vw, 80px);
+      letter-spacing: -.04em;
+      line-height: 1;
+      color: var(--ink);
+      transition: opacity .25s ease;
+    }
+    .price-unit {
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .price-stats {
+      display: flex;
+      gap: 32px;
+    }
+    .pstat { text-align: right; }
+    .pstat-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--ink);
+      letter-spacing: -.02em;
+    }
+    .pstat-val.up { color: var(--red); }
+    .pstat-val.down { color: var(--green); }
+    .pstat-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Chart */
+    .chart-area {
+      padding: 24px 36px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chart-hours {
+      display: flex;
+      gap: 3px;
+      align-items: flex-end;
+      height: 100px;
+    }
+    .bar {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      min-height: 4px;
+      cursor: pointer;
+      position: relative;
+      transition: height .5s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+    }
+    .bar::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: #fff;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s;
+      z-index: 10;
+    }
+    .bar:hover { opacity: 1 !important; }
+    .bar:hover::after { opacity: 1; }
+    .bar.now { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+    .chart-x {
+      display: flex;
+      gap: 3px;
+      padding-bottom: 16px;
+    }
+    .chart-x-label {
+      flex: 1;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .chart-x-label.now { color: var(--ink); font-weight: 500; }
+
+    /* ─── SECTION CONTAINER ───────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    /* ─── WHY SECTION ─────────────────────────────────── */
+    .why {
+      padding: 96px 0 80px;
+      border-top: 1px solid var(--border);
+    }
+    .why-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+    }
+    .why-left {}
+    .section-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--blue);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .why h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(26px, 3vw, 36px);
+      font-weight: 800;
+      letter-spacing: -.03em;
+      line-height: 1.15;
+      color: var(--ink);
+      margin-bottom: 20px;
+    }
+    .why p {
+      font-size: 15px;
+      color: var(--body);
+      line-height: 1.75;
+    }
+    .why p + p { margin-top: 14px; }
+
+    .why-right {}
+    .why-features {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .wf {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .wf:first-child { border-top: 1px solid var(--border); }
+    .wf-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      padding-top: 2px;
+    }
+    .wf-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -.01em;
+      margin-bottom: 5px;
+    }
+    .wf-desc {
+      font-size: 13px;
+      color: var(--body);
+      line-height: 1.65;
+    }
+
+    /* ─── COUNTRIES ───────────────────────────────────── */
+    .countries {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+    .countries-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .countries h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(24px, 3vw, 34px);
+      font-weight: 800;
+      letter-spacing: -.03em;
+      color: var(--ink);
+    }
+    .countries-note {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .countries-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .country-cell {
+      padding: 14px 18px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background .15s;
+    }
+    .country-cell:hover { background: var(--bg2); }
+    .country-cell img { width: 20px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0; }
+    .country-cell-name { font-size: 13px; color: var(--body); font-weight: 500; }
+    .country-cell-cc {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* ─── DOWNLOAD ────────────────────────────────────── */
+    .download {
+      padding: 80px 0 96px;
+      border-top: 1px solid var(--border);
+    }
+    .download-inner {
+      background: var(--ink);
+      border-radius: 24px;
+      padding: 64px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 64px;
+      align-items: center;
+    }
+    .download h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 800;
+      letter-spacing: -.04em;
+      line-height: 1.1;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+    .download-sub {
+      font-size: 15px;
+      color: #a1a1aa;
+      line-height: 1.65;
+      max-width: 400px;
+    }
+    .download-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .dl-btn {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      background: var(--lime);
+      background: #fff;
       color: var(--ink);
       font-family: 'Syne', sans-serif;
       font-weight: 700;
       font-size: 15px;
       padding: 16px 28px;
+      border-radius: 12px;
       text-decoration: none;
-      letter-spacing: -.01em;
+      white-space: nowrap;
       transition: background .2s, transform .15s;
-      width: fit-content;
+      letter-spacing: -.01em;
     }
-    .dl-button:hover { background: #d4ff50; transform: translateX(4px); }
-    .dl-button svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .dl-btn:hover { background: #f4f4f5; transform: translateY(-2px); }
+    .dl-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .dl-meta {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: #52525b;
+      text-align: center;
+      line-height: 1.8;
+    }
+    .dl-meta a { color: #71717a; text-decoration: underline; text-underline-offset: 3px; }
+    .dl-meta a:hover { color: #a1a1aa; }
 
-    .download-right {
-      padding: 64px 40px;
+    /* Install steps */
+    .install-steps {
       display: flex;
       flex-direction: column;
-      justify-content: center;
-    }
-    .steps { display: flex; flex-direction: column; gap: 0; }
-    .step {
-      display: flex;
-      gap: 20px;
-      padding: 20px 0;
-      border-bottom: 1px solid var(--rule);
-      align-items: flex-start;
-    }
-    .step:first-child { border-top: 1px solid var(--rule); }
-    .step-n {
-      font-size: 11px;
-      color: var(--dim);
-      min-width: 16px;
-      padding-top: 2px;
-    }
-    .step-text {
-      font-size: 13px;
-      line-height: 1.7;
-      color: var(--dim);
-    }
-    .step-text strong { color: var(--paper); font-weight: 500; }
-
-    /* ─── FOOTER ─────────────────────────────────────── */
-    footer {
-      border-top: 1px solid var(--rule);
-      padding: 20px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--dim);
-      flex-wrap: wrap;
       gap: 12px;
+      margin-top: 32px;
     }
-    footer a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--rule); transition: color .15s, border-color .15s; }
-    footer a:hover { color: var(--paper); border-color: var(--dim); }
-    .footer-links { display: flex; gap: 24px; }
+    .istep {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .istep-n {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 1px solid #3f3f46;
+      color: #71717a;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .istep-text {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.6;
+    }
+    .istep-text strong { color: #e4e4e7; font-weight: 600; }
 
-    /* ─── RESPONSIVE ─────────────────────────────────── */
-    @media (max-width: 768px) {
-      .hero-center { padding: 32px 24px 16px; }
-      .hero-foot { padding: 16px 24px; }
-      .chart-wrap { padding: 16px 24px 0; }
-      .section-rule { margin: 0 24px; }
-      .about { grid-template-columns: 1fr; }
-      .about-left { padding: 48px 24px; border-right: none; border-bottom: 1px solid var(--rule); }
-      .about-right { padding: 48px 24px; }
-      .features { grid-template-columns: 1fr; }
-      .feature { border-right: none; border-bottom: 1px solid var(--rule); padding: 36px 24px; }
-      .download { grid-template-columns: 1fr; }
-      .download-left { padding: 48px 24px; border-right: none; border-bottom: 1px solid var(--rule); }
-      .download-right { padding: 48px 24px; }
-      footer { padding: 20px 24px; flex-direction: column; align-items: flex-start; }
+    /* ─── FOOTER ──────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+    }
+    .footer-inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .footer-inner span, .footer-inner a { font-size: 12px; color: var(--muted); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { text-decoration: none; transition: color .15s; }
+    .footer-links a:hover { color: var(--ink); }
+
+    /* ─── RESPONSIVE ──────────────────────────────────── */
+    @media (max-width: 900px) {
+      .nav-inner { padding: 0 24px; }
+      .hero { padding: 48px 24px 40px; }
+      .hero-top { flex-direction: column; }
+      .market-selector { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
+      .market-tabs { flex-direction: row; flex-wrap: wrap; }
+      .price-row { flex-direction: column; }
+      .price-stats { justify-content: flex-start; }
+      .chart-area { padding: 20px 24px 0; }
+      .price-row { padding: 20px 24px 16px; }
+      .container { padding: 0 24px; }
+      .why-grid { grid-template-columns: 1fr; gap: 48px; }
+      .download-inner { grid-template-columns: 1fr; padding: 40px 32px; gap: 32px; }
+      .download-right { align-items: flex-start; }
+      .footer-inner { padding: 0 24px; }
+    }
+
+    @media (max-width: 560px) {
+      .countries-grid { grid-template-columns: 1fr 1fr; }
+      .pstat { display: none; }
+      .pstat:first-child { display: block; }
     }
   </style>
 </head>
 <body>
 
-<!-- ── TICKER ── -->
-<div class="ticker">
-  <div class="ticker-track" id="ticker">
-    <!-- populated by JS -->
-  </div>
-</div>
-
-<!-- ── HERO ── -->
-<section class="hero">
-  <div class="hero-center">
-    <div class="market-id" id="market-label">Germany · DE-LU · Today</div>
-    <div class="price-display">
-      <div class="price-number" id="price-number">--.-</div>
-      <div class="price-unit">¢/kWh now</div>
-    </div>
-  </div>
-
-  <div class="chart-wrap" id="chart-wrap">
-    <!-- bars populated by JS -->
-  </div>
-
-  <div class="hero-foot">
-    <span class="wordmark">VoltEU</span>
-    <span class="country-counter" id="country-counter">cycling 30 markets</span>
-    <span>Data: ENTSO-E Transparency Platform</span>
-  </div>
-</section>
-
-<div class="section-rule"></div>
-
-<!-- ── ABOUT ── -->
-<section class="about">
-  <div class="about-left">
-    <p>
-      If your electricity contract is priced at spot rate, what you pay changes every hour. 
-      Most people have no idea. VoltEU shows you exactly what it costs — right now, 
-      and for every hour of the day.
-    </p>
-    <p>
-      No account. No subscription. No notification spam. 
-      It fetches data from ENTSO-E — the same source your energy supplier uses.
-      Built for Android. Free.
-    </p>
-  </div>
-  <div class="about-right">
-    <div>
-      <div class="about-label">30+ Markets covered</div>
-      <ul class="country-list">
-        <li><span class="cc">AT</span>Austria</li>
-        <li><span class="cc">BE</span>Belgium</li>
-        <li><span class="cc">BG</span>Bulgaria</li>
-        <li><span class="cc">HR</span>Croatia</li>
-        <li><span class="cc">CZ</span>Czech Republic</li>
-        <li><span class="cc">DK</span>Denmark ×2</li>
-        <li><span class="cc">EE</span>Estonia</li>
-        <li><span class="cc">FI</span>Finland</li>
-        <li><span class="cc">FR</span>France</li>
-        <li><span class="cc">DE</span>Germany</li>
-        <li><span class="cc">GR</span>Greece</li>
-        <li><span class="cc">HU</span>Hungary</li>
-        <li><span class="cc">IE</span>Ireland</li>
-        <li><span class="cc">IT</span>Italy ×6</li>
-        <li><span class="cc">LV</span>Latvia</li>
-        <li><span class="cc">LT</span>Lithuania</li>
-        <li><span class="cc">LU</span>Luxembourg</li>
-        <li><span class="cc">ME</span>Montenegro</li>
-        <li><span class="cc">NL</span>Netherlands</li>
-        <li><span class="cc">MK</span>N. Macedonia</li>
-        <li><span class="cc">NO</span>Norway ×5</li>
-        <li><span class="cc">PL</span>Poland</li>
-        <li><span class="cc">PT</span>Portugal</li>
-        <li><span class="cc">RO</span>Romania</li>
-        <li><span class="cc">RS</span>Serbia</li>
-        <li><span class="cc">SK</span>Slovakia</li>
-        <li><span class="cc">SI</span>Slovenia</li>
-        <li><span class="cc">ES</span>Spain</li>
-        <li><span class="cc">SE</span>Sweden ×4</li>
-        <li><span class="cc">CH</span>Switzerland</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ── FEATURES ── -->
-<section class="features">
-  <div class="feature">
-    <div class="feature-num">01</div>
-    <div class="feature-title">Hourly & 15-minute resolution</div>
-    <div class="feature-desc">See exactly when prices peak and when they drop. Set your own low and high thresholds to mark the hours that matter for your usage.</div>
-  </div>
-  <div class="feature">
-    <div class="feature-num">02</div>
-    <div class="feature-title">Tomorrow's prices, today</div>
-    <div class="feature-desc">Day-ahead prices publish at 13:00 CET. VoltEU fetches them the moment they're available so you can plan before the day starts.</div>
-  </div>
-  <div class="feature">
-    <div class="feature-num">03</div>
-    <div class="feature-title">Your currency, your VAT</div>
-    <div class="feature-desc">EUR, SEK, NOK, PLN, CZK, HUF and more — each with accurate local VAT rates you can toggle on or off. No conversion guesswork.</div>
-  </div>
-</section>
-
-<!-- ── DOWNLOAD ── -->
-<section class="download" id="download">
-  <div class="download-left">
-    <h2>Android.<br/><em>Free.</em><br/>3.5 MB.</h2>
-    <a href="https://github.com/mareksmareks/VoltEU/releases/latest/download/VoltEU.apk"
-       class="dl-button"
-       id="dl-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/>
-        <line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>
-      Download VoltEU.apk
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="wordmark">
+      <span class="wordmark-dot"></span>
+      VoltEU
     </a>
-    <p style="margin-top:16px;font-size:11px;color:var(--dim);">
-      Android 7.0 or later required ·
-      <a href="https://github.com/mareksmareks/VoltEU/releases" style="color:var(--dim);border-bottom:1px solid var(--rule);">all releases ↗</a>
-    </p>
+    <a href="#download" class="nav-link">Download →</a>
   </div>
-  <div class="download-right">
-    <div class="steps">
-      <div class="step">
-        <span class="step-n">01</span>
-        <span class="step-text">Download <strong>VoltEU.apk</strong> using the link on the left.</span>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-top">
+    <div class="hero-text">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-line"></span>
+        Live ENTSO-E data
       </div>
-      <div class="step">
-        <span class="step-n">02</span>
-        <span class="step-text">Open <strong>Settings → Apps → Install unknown apps</strong> and allow your browser or file manager.</span>
+      <h1>Electricity prices,<br/><span>hour by hour</span></h1>
+      <p class="hero-sub">
+        If your contract follows spot pricing, what you pay changes every hour.
+        VoltEU shows you exactly what it costs — right now, and across all of today.
+      </p>
+    </div>
+
+    <div class="market-selector">
+      <div class="market-label">Market</div>
+      <div class="market-tabs" id="market-tabs">
+        <!-- populated by JS -->
       </div>
-      <div class="step">
-        <span class="step-n">03</span>
-        <span class="step-text">Open the downloaded file and tap <strong>Install</strong>.</span>
+    </div>
+  </div>
+
+  <!-- PRICE + CHART -->
+  <div class="price-chart-block">
+    <div class="price-row">
+      <div class="price-left">
+        <div class="price-context" id="price-context">Germany · DE-LU · Current hour</div>
+        <div class="price-main">
+          <div class="price-number" id="price-number">--.-</div>
+          <div class="price-unit">¢/kWh</div>
+        </div>
       </div>
-      <div class="step">
-        <span class="step-n">04</span>
-        <span class="step-text">The app checks for updates automatically. No app store needed.</span>
+      <div class="price-stats">
+        <div class="pstat">
+          <div class="pstat-val down" id="stat-low">--.-</div>
+          <div class="pstat-label">Day low</div>
+        </div>
+        <div class="pstat">
+          <div class="pstat-val" id="stat-avg">--.-</div>
+          <div class="pstat-label">Day avg</div>
+        </div>
+        <div class="pstat">
+          <div class="pstat-val up" id="stat-high">--.-</div>
+          <div class="pstat-label">Day high</div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-area">
+      <div class="chart-hours" id="chart-bars"></div>
+      <div class="chart-x" id="chart-x"></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="why">
+  <div class="container">
+    <div class="why-grid">
+      <div class="why-left">
+        <div class="section-tag">Why VoltEU</div>
+        <h2>Your supplier sees these numbers.<br/>Now you can too.</h2>
+        <p>Spot-priced electricity contracts are common across Europe — especially in the Nordics, Germany, and the Baltics. Your supplier buys on the wholesale market and charges you at that price, often with a small margin on top.</p>
+        <p>VoltEU pulls that same data — published hourly by ENTSO-E, the European grid operator — and puts it in a format you can actually use: run your dishwasher at 3 AM when it costs a fifth of what it costs at 6 PM, or charge your EV before the morning peak.</p>
+      </div>
+      <div class="why-right">
+        <div class="why-features">
+          <div class="wf">
+            <span class="wf-num">01</span>
+            <div>
+              <div class="wf-title">Today & tomorrow, 24 hours each</div>
+              <div class="wf-desc">Day-ahead prices publish at 13:00 CET. VoltEU fetches them the moment they're available so you can plan before the day starts.</div>
+            </div>
+          </div>
+          <div class="wf">
+            <span class="wf-num">02</span>
+            <div>
+              <div class="wf-title">1-hour and 15-minute resolution</div>
+              <div class="wf-desc">Standard hourly view or granular 15-minute intervals where available. Set your own low and high price thresholds.</div>
+            </div>
+          </div>
+          <div class="wf">
+            <span class="wf-num">03</span>
+            <div>
+              <div class="wf-title">Your currency, your VAT rate</div>
+              <div class="wf-desc">EUR, SEK, NOK, PLN, CZK, HUF and more — with accurate local VAT rates you can toggle on or off.</div>
+            </div>
+          </div>
+          <div class="wf">
+            <span class="wf-num">04</span>
+            <div>
+              <div class="wf-title">Auto-updates, no app store needed</div>
+              <div class="wf-desc">The app checks for new versions automatically. One tap to install — no Google Play account required.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── FOOTER ── -->
-<footer>
-  <span>VoltEU &copy; 2026</span>
-  <div class="footer-links">
-    <a href="https://doc-hosting.flycricket.io/volteu-privacy-policy/687a91a0-c20b-4f2c-862a-5acf3ca5614d/privacy" target="_blank">Privacy</a>
-    <a href="https://doc-hosting.flycricket.io/volteu-terms-of-use/ba61b237-f4ef-4fd6-acf8-2c2cdab83a2e/terms" target="_blank">Terms</a>
-    <a href="https://transparency.entsoe.eu" target="_blank">ENTSO-E</a>
-    <a href="https://github.com/ImranR98/Obtainium" target="_blank">Obtainium</a>
+<!-- COUNTRIES -->
+<section class="countries">
+  <div class="container">
+    <div class="countries-header">
+      <div>
+        <div class="section-tag">Coverage</div>
+        <h2>30+ European markets</h2>
+      </div>
+      <div class="countries-note">Including multi-zone: Norway ×5, Sweden ×4, Italy ×6, Denmark ×2</div>
+    </div>
+    <div class="countries-grid">
+      <div class="country-cell"><img src="https://flagcdn.com/w40/at.png" alt=""><span class="country-cell-name">Austria</span><span class="country-cell-cc">AT</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/be.png" alt=""><span class="country-cell-name">Belgium</span><span class="country-cell-cc">BE</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/bg.png" alt=""><span class="country-cell-name">Bulgaria</span><span class="country-cell-cc">BG</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/hr.png" alt=""><span class="country-cell-name">Croatia</span><span class="country-cell-cc">HR</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/cz.png" alt=""><span class="country-cell-name">Czech Republic</span><span class="country-cell-cc">CZ</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/dk.png" alt=""><span class="country-cell-name">Denmark</span><span class="country-cell-cc">DK</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/ee.png" alt=""><span class="country-cell-name">Estonia</span><span class="country-cell-cc">EE</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/fi.png" alt=""><span class="country-cell-name">Finland</span><span class="country-cell-cc">FI</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/fr.png" alt=""><span class="country-cell-name">France</span><span class="country-cell-cc">FR</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/de.png" alt=""><span class="country-cell-name">Germany</span><span class="country-cell-cc">DE</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/gr.png" alt=""><span class="country-cell-name">Greece</span><span class="country-cell-cc">GR</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/hu.png" alt=""><span class="country-cell-name">Hungary</span><span class="country-cell-cc">HU</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/ie.png" alt=""><span class="country-cell-name">Ireland</span><span class="country-cell-cc">IE</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/it.png" alt=""><span class="country-cell-name">Italy</span><span class="country-cell-cc">IT</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/lv.png" alt=""><span class="country-cell-name">Latvia</span><span class="country-cell-cc">LV</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/lt.png" alt=""><span class="country-cell-name">Lithuania</span><span class="country-cell-cc">LT</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/lu.png" alt=""><span class="country-cell-name">Luxembourg</span><span class="country-cell-cc">LU</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/me.png" alt=""><span class="country-cell-name">Montenegro</span><span class="country-cell-cc">ME</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/nl.png" alt=""><span class="country-cell-name">Netherlands</span><span class="country-cell-cc">NL</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/mk.png" alt=""><span class="country-cell-name">N. Macedonia</span><span class="country-cell-cc">MK</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/no.png" alt=""><span class="country-cell-name">Norway</span><span class="country-cell-cc">NO</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/pl.png" alt=""><span class="country-cell-name">Poland</span><span class="country-cell-cc">PL</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/pt.png" alt=""><span class="country-cell-name">Portugal</span><span class="country-cell-cc">PT</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/ro.png" alt=""><span class="country-cell-name">Romania</span><span class="country-cell-cc">RO</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/rs.png" alt=""><span class="country-cell-name">Serbia</span><span class="country-cell-cc">RS</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/sk.png" alt=""><span class="country-cell-name">Slovakia</span><span class="country-cell-cc">SK</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/si.png" alt=""><span class="country-cell-name">Slovenia</span><span class="country-cell-cc">SI</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/es.png" alt=""><span class="country-cell-name">Spain</span><span class="country-cell-cc">ES</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/se.png" alt=""><span class="country-cell-name">Sweden</span><span class="country-cell-cc">SE</span></div>
+      <div class="country-cell"><img src="https://flagcdn.com/w40/ch.png" alt=""><span class="country-cell-name">Switzerland</span><span class="country-cell-cc">CH</span></div>
+    </div>
   </div>
-  <span>v1.1.0</span>
+</section>
+
+<!-- DOWNLOAD -->
+<section class="download" id="download">
+  <div class="container">
+    <div class="download-inner">
+      <div>
+        <h2>Free Android app.<br/>No account needed.</h2>
+        <p class="download-sub">Sideloaded APK — no Google Play required. The app checks for its own updates and notifies you when a new version is available.</p>
+        <div class="install-steps">
+          <div class="istep">
+            <span class="istep-n">1</span>
+            <span class="istep-text">Download <strong>VoltEU.apk</strong> on your Android phone.</span>
+          </div>
+          <div class="istep">
+            <span class="istep-n">2</span>
+            <span class="istep-text">Go to <strong>Settings → Apps → Install unknown apps</strong> and allow your browser.</span>
+          </div>
+          <div class="istep">
+            <span class="istep-n">3</span>
+            <span class="istep-text">Open the file and tap <strong>Install</strong>.</span>
+          </div>
+        </div>
+      </div>
+      <div class="download-right">
+        <a href="https://github.com/mareksmareks/VoltEU/releases/latest/download/VoltEU.apk" class="dl-btn" id="dl-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download APK
+        </a>
+        <div class="dl-meta">
+          v1.1.0 · Android 7.0+ · 3.5 MB<br/>
+          <a href="https://github.com/mareksmareks/VoltEU/releases" target="_blank">All releases ↗</a>
+          &nbsp;·&nbsp;
+          <a href="https://github.com/ImranR98/Obtainium" target="_blank">Obtainium ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <span>VoltEU &copy; 2026 — Data: <a href="https://transparency.entsoe.eu" target="_blank" style="color:var(--muted);text-decoration:underline;text-underline-offset:3px;">ENTSO-E Transparency Platform</a></span>
+    <div class="footer-links">
+      <a href="https://doc-hosting.flycricket.io/volteu-privacy-policy/687a91a0-c20b-4f2c-862a-5acf3ca5614d/privacy" target="_blank">Privacy</a>
+      <a href="https://doc-hosting.flycricket.io/volteu-terms-of-use/ba61b237-f4ef-4fd6-acf8-2c2cdab83a2e/terms" target="_blank">Terms</a>
+    </div>
+  </div>
 </footer>
 
 <script>
-  // ── DATA ──────────────────────────────────────────────────────────────
   const MARKETS = [
-    {
-      id: 'DE-LU', name: 'Germany', cc: 'DE',
-      unit: '¢/kWh',
-      hours: [4.2,3.8,3.1,2.9,3.4,6.8,12.4,18.1,22.3,19.7,16.2,14.8,13.1,11.9,12.7,14.3,19.8,24.1,21.6,18.4,14.2,10.3,7.6,5.1]
-    },
-    {
-      id: 'SE3', name: 'Sweden (Stockholm)', cc: 'SE',
-      unit: '¢/kWh',
-      hours: [1.8,1.4,1.1,0.9,1.2,3.2,7.1,9.8,11.2,9.4,7.8,6.9,6.1,5.8,6.4,7.9,10.3,12.1,9.8,7.6,5.4,3.8,2.6,2.1]
-    },
-    {
-      id: 'NO1', name: 'Norway (Oslo)', cc: 'NO',
-      unit: '¢/kWh',
-      hours: [0.8,0.6,0.5,0.4,0.5,1.1,2.8,4.2,5.1,4.8,3.9,3.4,3.1,2.9,3.2,4.0,5.6,6.3,5.2,4.1,2.9,2.1,1.4,1.0]
-    },
-    {
-      id: 'PL', name: 'Poland', cc: 'PL',
-      unit: '¢/kWh',
-      hours: [7.1,6.4,5.9,5.4,6.2,9.8,16.3,22.7,28.4,25.1,21.4,19.2,17.8,16.4,17.9,20.3,25.8,30.1,27.4,22.6,17.1,13.2,10.4,8.3]
-    },
-    {
-      id: 'ES', name: 'Spain', cc: 'ES',
-      unit: '¢/kWh',
-      hours: [3.9,3.2,2.8,2.4,2.9,5.6,10.3,14.8,17.2,15.6,13.1,10.4,8.7,7.8,9.2,11.4,15.7,18.9,16.3,13.1,9.8,7.2,5.4,4.2]
-    },
-    {
-      id: 'FI', name: 'Finland', cc: 'FI',
-      unit: '¢/kWh',
-      hours: [2.9,2.4,2.0,1.8,2.1,4.3,8.6,12.1,14.8,13.2,10.9,9.4,8.2,7.6,8.4,10.1,13.7,16.2,14.1,11.4,8.2,5.9,4.3,3.4]
-    }
+    { id:'DE-LU', name:'Germany',      hours:[4.2,3.8,3.1,2.9,3.4,6.8,12.4,18.1,22.3,19.7,16.2,14.8,13.1,11.9,12.7,14.3,19.8,24.1,21.6,18.4,14.2,10.3,7.6,5.1] },
+    { id:'SE3',   name:'Sweden',        hours:[1.8,1.4,1.1,0.9,1.2,3.2,7.1,9.8,11.2,9.4,7.8,6.9,6.1,5.8,6.4,7.9,10.3,12.1,9.8,7.6,5.4,3.8,2.6,2.1] },
+    { id:'NO1',   name:'Norway',        hours:[0.8,0.6,0.5,0.4,0.5,1.1,2.8,4.2,5.1,4.8,3.9,3.4,3.1,2.9,3.2,4.0,5.6,6.3,5.2,4.1,2.9,2.1,1.4,1.0] },
+    { id:'PL',    name:'Poland',        hours:[7.1,6.4,5.9,5.4,6.2,9.8,16.3,22.7,28.4,25.1,21.4,19.2,17.8,16.4,17.9,20.3,25.8,30.1,27.4,22.6,17.1,13.2,10.4,8.3] },
+    { id:'ES',    name:'Spain',         hours:[3.9,3.2,2.8,2.4,2.9,5.6,10.3,14.8,17.2,15.6,13.1,10.4,8.7,7.8,9.2,11.4,15.7,18.9,16.3,13.1,9.8,7.2,5.4,4.2] },
+    { id:'FI',    name:'Finland',       hours:[2.9,2.4,2.0,1.8,2.1,4.3,8.6,12.1,14.8,13.2,10.9,9.4,8.2,7.6,8.4,10.1,13.7,16.2,14.1,11.4,8.2,5.9,4.3,3.4] },
   ];
 
-  const COUNTRIES = [
-    ['AT','Austria'],['BE','Belgium'],['BG','Bulgaria'],['HR','Croatia'],['CZ','Czech Rep.'],
-    ['DK','Denmark'],['EE','Estonia'],['FI','Finland'],['FR','France'],['DE','Germany'],
-    ['GR','Greece'],['HU','Hungary'],['IE','Ireland'],['IT','Italy'],['LV','Latvia'],
-    ['LT','Lithuania'],['LU','Luxembourg'],['ME','Montenegro'],['NL','Netherlands'],
-    ['MK','N. Macedonia'],['NO','Norway'],['PL','Poland'],['PT','Portugal'],['RO','Romania'],
-    ['RS','Serbia'],['SK','Slovakia'],['SI','Slovenia'],['ES','Spain'],['SE','Sweden'],['CH','Switzerland']
-  ];
-
-  // ── TICKER ────────────────────────────────────────────────────────────
-  const tickerEl = document.getElementById('ticker');
-  const tickerHTML = [...COUNTRIES, ...COUNTRIES].map(([cc, name]) =>
-    `<div class="ticker-item"><span class="cc">${cc}</span>${name}</div>`
-  ).join('');
-  tickerEl.innerHTML = tickerHTML;
-
-  // ── CHART ─────────────────────────────────────────────────────────────
-  const chartWrap = document.getElementById('chart-wrap');
-  const priceEl   = document.getElementById('price-number');
-  const labelEl   = document.getElementById('market-label');
-  const counterEl = document.getElementById('country-counter');
-
-  let currentMarket = 0;
   const currentHour = new Date().getHours();
+  let active = 0;
+
+  // Build tabs
+  const tabsEl = document.getElementById('market-tabs');
+  MARKETS.forEach((m, i) => {
+    const tab = document.createElement('div');
+    tab.className = 'market-tab' + (i === 0 ? ' active' : '');
+    tab.textContent = m.id;
+    tab.onclick = () => { active = i; renderMarket(i); };
+    tabsEl.appendChild(tab);
+  });
 
   function getBarColor(price, min, max) {
-    const ratio = (price - min) / (max - min);
-    if (ratio < 0.33) return '#5cccff';
-    if (ratio < 0.66) return '#c8f53c';
-    return '#ff5c35';
+    const r = (price - min) / (max - min || 1);
+    if (r < 0.30) return '#16a34a';   // green — cheap
+    if (r < 0.65) return '#d97706';   // amber — mid
+    return '#dc2626';                  // red — expensive
   }
 
-  function renderMarket(idx, animate) {
+  function renderMarket(idx, animate = false) {
     const m = MARKETS[idx];
-    const min = Math.min(...m.hours);
-    const max = Math.max(...m.hours);
-    const now = m.hours[Math.min(currentHour, 23)];
-    const isHot = now / max > 0.7;
-    const isCold = now / max < 0.35;
+    const hours = m.hours;
+    const min  = Math.min(...hours);
+    const max  = Math.max(...hours);
+    const avg  = (hours.reduce((a,b) => a+b, 0) / hours.length);
+    const now  = hours[Math.min(currentHour, 23)];
 
-    // Label
-    labelEl.textContent = `${m.name} · ${m.id} · Today`;
+    // Update tabs
+    document.querySelectorAll('.market-tab').forEach((t, i) => {
+      t.className = 'market-tab' + (i === idx ? ' active' : '');
+    });
 
-    // Price number
-    priceEl.className = 'price-number' + (isHot ? ' hot' : isCold ? ' cold' : '');
+    // Context
+    document.getElementById('price-context').textContent =
+      `${m.name} · ${m.id} · Hour ${currentHour}:00`;
+
+    // Animated price number
+    const priceEl = document.getElementById('price-number');
     if (animate) {
       priceEl.style.opacity = '0';
-      setTimeout(() => {
-        priceEl.textContent = now.toFixed(1);
-        priceEl.style.opacity = '1';
-      }, 180);
+      setTimeout(() => { priceEl.textContent = now.toFixed(1); priceEl.style.opacity = '1'; }, 200);
     } else {
       priceEl.textContent = now.toFixed(1);
     }
 
-    // Counter
-    counterEl.textContent = `market ${idx + 1} of ${MARKETS.length} · cycling`;
+    document.getElementById('stat-low').textContent  = min.toFixed(1);
+    document.getElementById('stat-avg').textContent  = avg.toFixed(1);
+    document.getElementById('stat-high').textContent = max.toFixed(1);
 
     // Bars
-    chartWrap.innerHTML = '';
-    m.hours.forEach((price, h) => {
+    const barsEl = document.getElementById('chart-bars');
+    barsEl.innerHTML = '';
+    hours.forEach((price, h) => {
       const bar = document.createElement('div');
-      bar.className = 'bar' + (h === currentHour ? ' current' : '');
-      const heightPct = 15 + ((price - min) / (max - min)) * 85;
-      bar.style.height = heightPct + '%';
-      bar.style.background = h === currentHour
-        ? getBarColor(price, min, max)
-        : `color-mix(in srgb, ${getBarColor(price, min, max)} 40%, #2a2a24)`;
-      bar.setAttribute('data-price', price.toFixed(1) + ' ' + m.unit);
-      chartWrap.appendChild(bar);
+      bar.className = 'bar' + (h === currentHour ? ' now' : '');
+      const pct = 10 + ((price - min) / (max - min || 1)) * 90;
+      bar.style.height = pct + '%';
+      bar.style.background = getBarColor(price, min, max);
+      bar.style.opacity = h === currentHour ? '1' : '0.45';
+      bar.setAttribute('data-tip', `${h}:00 · ${price.toFixed(1)}¢`);
+      barsEl.appendChild(bar);
+    });
+
+    // X axis
+    const xEl = document.getElementById('chart-x');
+    xEl.innerHTML = '';
+    [0,3,6,9,12,15,18,21].forEach(h => {
+      const labels = Array(24).fill('');
+      labels[h] = h + ':00';
+      hours.forEach((_, hi) => {
+        if (hi === h) {
+          const lbl = document.createElement('div');
+          lbl.className = 'chart-x-label' + (hi === currentHour ? ' now' : '');
+          // Only show every 3rd hour label to avoid crowding — we do this via empty spans
+        }
+      });
+    });
+    // Simpler: one label per bar, only show every 3rd
+    hours.forEach((_, h) => {
+      const lbl = document.createElement('div');
+      lbl.className = 'chart-x-label' + (h === currentHour ? ' now' : '');
+      lbl.textContent = (h % 3 === 0) ? h + ':00' : '';
+      xEl.appendChild(lbl);
     });
   }
 
-  // Initial render
-  renderMarket(0, false);
+  renderMarket(0);
 
-  // Auto-cycle every 4 seconds
+  // Auto-cycle
   setInterval(() => {
-    currentMarket = (currentMarket + 1) % MARKETS.length;
-    renderMarket(currentMarket, true);
-  }, 4000);
+    active = (active + 1) % MARKETS.length;
+    renderMarket(active, true);
+  }, 5000);
 </script>
 
 </body>
